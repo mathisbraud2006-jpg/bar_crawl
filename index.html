@@ -24,6 +24,8 @@
   .add-player input:focus{border-color:#555}
   .add-player button{background:#1a1a1a;border:1px solid #2a2a2a;border-radius:8px;padding:8px 16px;color:#ccc;font-size:13px;cursor:pointer;transition:all .2s}
   .add-player button:hover{background:#252525;border-color:#444}
+  .section-label{padding:0 24px 14px;font-size:12px;color:#555;letter-spacing:.5px;text-transform:uppercase}
+  .age-warning{margin:0 24px 16px;padding:12px 16px;background:#1a0a00;border:1px solid #ff6600;border-radius:10px;font-size:13px;color:#ff9944;display:flex;align-items:center;gap:10px}
   .themes-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;padding:0 24px 40px}
   .theme-card{border-radius:var(--r);overflow:hidden;cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s;position:relative}
   .theme-card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
@@ -35,6 +37,7 @@
   .tc-info p{font-size:12px;opacity:.55;line-height:1.4}
   .tc-tags{display:flex;gap:6px;flex-wrap:wrap}
   .tc-tag{font-size:10px;font-weight:600;letter-spacing:.5px;padding:3px 9px;border-radius:20px;border:1px solid currentColor;opacity:.8;text-transform:uppercase}
+  .tc-badge{position:absolute;top:14px;right:14px;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.5px}
   .tc-arrow{position:absolute;top:18px;right:18px;font-size:18px;opacity:.3;transition:opacity .2s}
   .theme-card:hover .tc-arrow{opacity:.8}
   #game{background:#0d0d0d}
@@ -94,22 +97,46 @@
   .end-row-pts{font-size:17px;font-weight:800}
   .btn-play-again{padding:14px 36px;border-radius:12px;font-size:16px;font-weight:700;background:linear-gradient(135deg,#fff,#ccc);color:#000;border:none;cursor:pointer;transition:all .2s}
   .btn-play-again:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(255,255,255,.15)}
+
+  /* Age gate */
+  .age-gate{position:fixed;inset:0;background:#0d0d0d;z-index:999;display:flex;align-items:center;justify-content:center;padding:24px;animation:fadeIn .3s}
+  .age-gate-box{max-width:360px;width:100%;text-align:center}
+  .age-gate-box .emoji{font-size:56px;margin-bottom:20px}
+  .age-gate-box h2{font-size:24px;font-weight:800;margin-bottom:8px;color:#FF1A75}
+  .age-gate-box p{color:#888;font-size:14px;line-height:1.6;margin-bottom:28px}
+  .age-gate-btns{display:flex;flex-direction:column;gap:10px}
+  .btn-confirm{padding:14px;border-radius:12px;font-size:16px;font-weight:700;background:linear-gradient(135deg,#FF1A75,#CC0055);color:#fff;border:none;cursor:pointer;transition:all .2s}
+  .btn-confirm:hover{filter:brightness(1.1)}
+  .btn-deny{padding:14px;border-radius:12px;font-size:15px;background:#1a1a1a;border:1px solid #2a2a2a;color:#666;cursor:pointer}
 </style>
 </head>
 <body>
+
+<!-- AGE GATE (hidden by default, shown when +18 theme selected) -->
+<div id="age-gate" class="age-gate" style="display:none">
+  <div class="age-gate-box">
+    <div class="emoji">🔞</div>
+    <h2>Adults Only</h2>
+    <p>This theme contains explicit, adult content intended for mature audiences only.<br><br>By continuing, you confirm that all players are <strong>18 years of age or older</strong>.</p>
+    <div class="age-gate-btns">
+      <button class="btn-confirm" onclick="confirmAge()">Yes, we're all 18+ — Let's go 🔥</button>
+      <button class="btn-deny" onclick="denyAge()">No, take me back</button>
+    </div>
+  </div>
+</div>
 
 <div id="home" class="screen active">
   <div class="home-header">
     <h1>🍻 Bar Crawl</h1>
     <p>Pick a theme · Gather your crew · Let the cards decide</p>
   </div>
-  <div style="padding:0 24px 8px;font-size:12px;color:#555;letter-spacing:.5px;text-transform:uppercase">Players</div>
+  <div class="section-label">Players</div>
   <div class="players-bar" id="players-bar"></div>
   <div class="add-player">
     <input id="new-player-input" type="text" placeholder="Add player name…" maxlength="20">
     <button onclick="addPlayer()">+ Add</button>
   </div>
-  <div style="padding:0 24px 14px;font-size:12px;color:#555;letter-spacing:.5px;text-transform:uppercase">Choose Theme</div>
+  <div class="section-label">Choose Theme</div>
   <div class="themes-grid" id="themes-grid"></div>
 </div>
 
@@ -156,164 +183,115 @@ const THEMES = {
   greenflag:{name:"Green Flag",emoji:"🟢",tagline:"Good Vibes Only Tonight",bg:"linear-gradient(135deg,#001a08,#002a10)",acc:"#00E676",photoB:"#001a08",dareB:"#0a1a00",drinkB:"#001808",photoA:"#00E676",dareA:"#69F0AE",drinkA:"#B9F6CA",PL:"Vibe Check",DL:"Green Dare",DRL:"Cheers Round"},
   hangover:{name:"The Hangover",emoji:"😵",tagline:"What Happened Last Night?",bg:"linear-gradient(135deg,#1a1400,#2a1e00)",acc:"#FFC107",photoB:"#1a0a00",dareB:"#1a1400",drinkB:"#1a0800",photoA:"#FFC107",dareA:"#FF7043",drinkA:"#FF5252",PL:"Crime Scene",DL:"Bad Idea",DRL:"Hair of the Dog"},
   mrworldwide:{name:"Mr Worldwide",emoji:"🌐",tagline:"We Go Global Tonight",bg:"linear-gradient(135deg,#001020,#002030)",acc:"#00BCD4",photoB:"#001020",dareB:"#100010",drinkB:"#001010",photoA:"#00BCD4",dareA:"#E040FB",drinkA:"#76FF03",PL:"Globe Shot",DL:"World Dare",DRL:"Global Round"},
+  lithuania:{name:"Lithuanian Night",emoji:"🇱🇹",tagline:"Kaunas Never Sleeps, Alus Visada Teka",bg:"linear-gradient(135deg,#0a1200,#001a00)",acc:"#FFCB00",photoB:"#0a1400",dareB:"#1a1000",drinkB:"#001a08",photoA:"#FFCB00",dareA:"#CC0000",drinkA:"#008000",PL:"Nuotrauka",DL:"Iššūkis",DRL:"Alaus Ratas"},
+  karaoke:{name:"Karaoke Night",emoji:"🎤",tagline:"No Shame, All Game, Full Volume",bg:"linear-gradient(135deg,#1a0030,#0a001a)",acc:"#FF44FF",photoB:"#200030",dareB:"#200020",drinkB:"#001020",photoA:"#FF44FF",dareA:"#FFCC00",drinkA:"#00CCFF",PL:"Stage Shot",DL:"Mic Dare",DRL:"Drink & Sing"},
+  hot18:{name:"After Dark 🔞",emoji:"🌶️",tagline:"Adults Only · No Limits · No Regrets",bg:"linear-gradient(135deg,#1a0008,#2a0010)",acc:"#FF1A75",photoB:"#1a0008",dareB:"#200010",drinkB:"#100008",photoA:"#FF1A75",dareA:"#FF6600",drinkA:"#CC00CC",PL:"Spicy Shot",DL:"After Dark Dare",DRL:"Shots & Secrets",adult:true},
 };
 
 const CHALLENGES = {
   medieval:{
     photo:[
-      {t:"Guard Duty",b:"Pose as a knight guarding any entrance — most serious face wins. Hold the line!",tip:"Great at any door or archway!"},
-      {t:"The Holy Grail",b:"Hold any drink vessel above your head like Excalibur while the group kneels before it.",tip:"Even better with confused bystanders in the background."},
-      {t:"Dragon Slayer",b:"Use a bottle, umbrella, or any object as a sword. Pose as if you just slew a dragon. One person IS the dragon.",tip:"The more ridiculous the dragon, the more glory."},
-      {t:"Tower Defense",b:"Group poses defending an imaginary castle. Some attacking, some defending from high ground.",tip:"Any stairs or elevated area works perfectly."},
+      {t:"Guard Duty",b:"Pose as a knight guarding any entrance — most serious face wins.",tip:"Great at any door or archway!"},
+      {t:"The Holy Grail",b:"Hold any drink vessel above your head like Excalibur while the group kneels before it.",tip:"Even better with confused bystanders."},
+      {t:"Dragon Slayer",b:"Use a bottle or umbrella as a sword. Pose as if you just slew a dragon. One person IS the dragon.",tip:"The more ridiculous the dragon, the more glory."},
+      {t:"Tower Defense",b:"Group poses defending an imaginary castle. Some attacking, some defending from high ground.",tip:"Any stairs or elevated area works."},
       {t:"The Royal Decree",b:"Stand on any step and proclaim something loudly while everyone looks scandalized.",tip:"The more absurd the proclamation, the better!"},
       {t:"Cat Overlord",b:"Find any cat and bow before it as the true ruler. All group members must bow.",tip:"No cat? A pigeon will do."},
       {t:"The Great Plague",b:"Entire group dramatically dies in an alley. One survivor looks devastated.",tip:"Cobblestones add authenticity."},
-      {t:"Peasant Uprising",b:"Everyone crouches with sad faces outside a fancy restaurant, pressing noses against the glass.",tip:"Pick the fanciest place you can find."},
-      {t:"The Siege",b:"Group surrounds one person who defends an imaginary castle (a table or pillar). Attackers must look furious.",tip:"The defender gets to choose the next bar if they survive."},
-      {t:"The Jester",b:"One person must make every stranger they pass smile — using only faces and gestures, no words.",tip:"Score is judged by the group. Three smiles minimum."},
       {t:"Court Portrait",b:"Pose as a formal royal family portrait. Assign roles: King, Queen, fool, knight, servant.",tip:"Hold for 10 seconds. Absolute seriousness required."},
     ],
     dare:[
-      {t:"Ye Olde Tongue",b:"Speak ONLY in questions for the next full round. One violation = drink.",tip:"The group is the jury on violations."},
-      {t:"Town Crier",b:"Stand on something and loudly announce completely made-up medieval news to 3 strangers.",tip:"Hear ye! The great cheese shortage has ended!"},
-      {t:"The Hark",b:"Approach a stranger: 'Hark, good citizen! Art thou a wizard?' Complete seriousness required.",tip:"Failure to keep a straight face = drink."},
+      {t:"Ye Olde Tongue",b:"Speak ONLY in questions for the next full round. One violation = drink.",tip:"The group is the jury."},
+      {t:"Town Crier",b:"Loudly announce completely made-up medieval news to 3 strangers.",tip:"Hear ye! The great cheese shortage has ended!"},
+      {t:"The Hark",b:"Approach a stranger: 'Hark, good citizen! Art thou a wizard?' Full seriousness required.",tip:"Failure to keep a straight face = drink."},
       {t:"The Oath",b:"Kneel and swear a ridiculous loyalty oath to the person on your left. Must be 30+ seconds.",tip:"Include at least 3 absurd duties."},
-      {t:"Trial by Combat",b:"Challenge the tallest person nearby to a thumb war. Announce it as Trial by Combat.",tip:"Must be announced loudly in full."},
-      {t:"Medieval Narrator",b:"Narrate everything you do in 3rd person for 10 minutes. 'The brave knight ponders the menu...'",tip:"Violations cost drinks. Group is judge."},
-      {t:"The Confession",b:"Confess a completely made-up crime against the Crown. 3 people must gasp audibly.",tip:"'I did steal the King's finest goat' — that sort of thing."},
-      {t:"Name Thy Fellowship",b:"Invent a proper medieval name for each person. These are now official names for the evening.",tip:"Violations cost a drink!"},
-      {t:"The Royal Procession",b:"Walk to the next venue in single file by height, tallest first. Maintain silence throughout.",tip:"If the line breaks, restart from the entrance."},
-      {t:"For the Kingdom!",b:"Group does 5 squats in sync, shouting FOR THE KINGDOM at the bottom. All must join.",tip:"Anyone who giggles does 5 more."},
-      {t:"The Riddle",b:"Pose a riddle to a stranger. If they can't answer in 30 seconds, they owe you a bow.",tip:"Have your riddle ready before approaching."},
-      {t:"The Bard",b:"Compose and perform a 4-line rhyming poem about the group on the spot. Right now. Go.",tip:"It must rhyme. It must be true. It must be embarrassing."},
+      {t:"Trial by Combat",b:"Challenge the tallest person nearby to a thumb war. Announce it as Trial by Combat.",tip:"Must be announced loudly."},
+      {t:"Medieval Narrator",b:"Narrate everything you do in 3rd person for 10 minutes.",tip:"'The brave knight ponders the menu...' Violations cost drinks."},
+      {t:"The Confession",b:"Confess a completely made-up crime against the Crown. 3 people must gasp audibly.",tip:"'I stole the King's finest goat' — that sort of thing."},
+      {t:"The Bard",b:"Compose and perform a 4-line rhyming poem about the group on the spot.",tip:"It must rhyme. It must be true. It must be embarrassing."},
     ],
     drink:[
-      {t:"The Last to Know",b:"Last to touch their nose buys the next round of shots. Call it NOW. No warnings.",tip:"No time to think!"},
-      {t:"The Waterfall",b:"All start drinking at once. You stop only when the person to your left stops. You go first.",tip:"You can hold out as long as you like..."},
+      {t:"The Last to Know",b:"Last to touch their nose buys the next round. Call it NOW. No warnings.",tip:"No time to think!"},
+      {t:"The Waterfall",b:"All start drinking at once. You stop only when the person to your left stops.",tip:"You can hold out as long as you like..."},
       {t:"Tournament of Fists",b:"Rock-paper-scissors bracket. Every loser drinks. Champion skips next drink challenge.",tip:"Draw the bracket on a napkin first."},
-      {t:"The Communal Chalice",b:"Order one shot each. Everyone drinks simultaneously on the count of three.",tip:"The challenger leads the count."},
       {t:"Two Truths & A Lie",b:"Three statements, all sounding medieval. Group votes on the lie. Majority wrong = all drink.",tip:"'I once milked a goat, I fear the sea, I betrayed my lord.'"},
-      {t:"Peasant's Pick",b:"The shortest person chooses everyone's next drink. No complaints. Their word is law.",tip:"Long live the short sovereign!"},
-      {t:"Tongue of the Ancients",b:"Next drink order must be in Old English. The bartender must understand enough to pour something.",tip:"'Good innkeeper! A flagon of thine finest mead!'"},
-      {t:"The Poison Taster",b:"One person takes a sip of everyone else's drink and must guess what it is. Wrong = extra drink.",tip:"Confidence is key. Knowledge is optional."},
-      {t:"King's Cup",b:"Go around the group. Each person adds a small amount of their drink to a central glass. Last to add must drink it all.",tip:"The central cup is the sacrifice. Choose wisely what you add."},
+      {t:"Peasant's Pick",b:"The shortest person chooses everyone's next drink. No complaints.",tip:"Long live the short sovereign!"},
+      {t:"King's Cup",b:"Everyone adds a small amount of their drink to a central glass. Last to add must drink it all.",tip:"Choose wisely what you add."},
     ],
   },
   scifi:{
     photo:[
-      {t:"Red Shirt Moment",b:"One person dramatically dies in the middle of the bar. Others mourn appropriately.",tip:"The more theatrical the death, the more XP earned."},
-      {t:"Warp Speed",b:"Everyone leans dramatically in the same direction as if hitting warp. Full commitment.",tip:"A 3-second countdown before engaging warp is mandatory."},
+      {t:"Red Shirt Moment",b:"One person dramatically dies in the bar. Others mourn appropriately.",tip:"The more theatrical, the more XP."},
+      {t:"Warp Speed",b:"Everyone leans dramatically in the same direction as if hitting warp. Full commitment.",tip:"3-second countdown before engaging warp is mandatory."},
       {t:"Zero Gravity",b:"Group moves in slow motion as if weightless — every movement deliberate and floaty.",tip:"You are now on the space station. Act accordingly."},
       {t:"Alien Autopsy",b:"One person lies very still. Others examine them with genuine scientific concern.",tip:"At least two people must take notes."},
-      {t:"Crew Photo",b:"Line up and pose as the bridge crew of a starship. Assign roles: Captain, Engineer, Science...",tip:"The Captain must point dramatically off-screen."},
-      {t:"First Contact",b:"Group lines up and greets a stranger with a formal alien welcome ceremony.",tip:"Bonus points if the stranger plays along."},
-      {t:"The Force",b:"One person does telekinesis gestures while another pretends their drink is moving by itself.",tip:"Hold the expression for at least 10 seconds."},
       {t:"Mech Suit",b:"Group forms around one person and acts as their mechanical exosuit. They move, you move.",tip:"The pilot gives commands. The suit obeys."},
-      {t:"Time Freeze",b:"Everyone freezes mid-action simultaneously. Hold for 15 seconds. One person narrates what they see.",tip:"The narrator is NOT allowed to freeze."},
-      {t:"Escape Pod",b:"Everyone scrambles to squeeze together as if fitting into a tiny escape pod. Maximum panic.",tip:"Someone must press an imaginary button. Someone must argue about weight limits."},
+      {t:"Escape Pod",b:"Everyone scrambles to squeeze together as if fitting into a tiny escape pod. Maximum panic.",tip:"Someone must argue about weight limits."},
     ],
     dare:[
       {t:"Robot Mode",b:"Speak only like a robot for the next full round. All emotions must be described, not expressed.",tip:"Malfunction sounds are encouraged."},
       {t:"Villain Monologue",b:"Deliver a full 30-second villain monologue explaining your plan for the evening.",tip:"Must include a dramatic pause and a threat."},
-      {t:"Tricorder Scan",b:"Use your phone as a tricorder to scan a stranger. Announce your findings to the group.",tip:"Medical, biological, and fashion assessments are all valid."},
-      {t:"Species Assignment",b:"Assign each person in the group an alien species based on their personality. Explain each choice.",tip:"A full biological justification is required."},
-      {t:"Alien Anthropologist",b:"Explain to a stranger why Earth beverages are fascinating from an academic alien perspective.",tip:"You have been studying humans for 40 years."},
-      {t:"Prime Directive",b:"Announce the group's Prime Directive for the evening. Everyone must agree to it.",tip:"It must be both noble and ridiculous."},
-      {t:"I Am Android",b:"Confess to the group that you are actually an android. Prove it with 3 pieces of evidence.",tip:"The group votes on whether they believe you."},
-      {t:"Mayday Protocol",b:"Stand up and shout MAYDAY MAYDAY, WE HAVE A SOCIAL EMERGENCY at a reasonable volume.",tip:"The emergency must be described clearly."},
-      {t:"Lightsaber Duel",b:"Challenge someone to a lightsaber duel using straws or any long object. Full sound effects required.",tip:"Judge by crowd reaction."},
-      {t:"Wormhole Theory",b:"Explain to a stranger how wormholes work. You have 60 seconds. They must look impressed.",tip:"Accuracy is optional. Confidence is not."},
+      {t:"Tricorder Scan",b:"Use your phone as a tricorder to scan a stranger. Announce your findings.",tip:"Medical, biological, and fashion assessments all valid."},
+      {t:"Species Assignment",b:"Assign each person an alien species based on personality. Explain each choice.",tip:"Full biological justification required."},
+      {t:"Self-Destruct Sequence",b:"Announce a 30-second self-destruct countdown. The group must evacuate dramatically.",tip:"The destination is the next bar or the next room."},
       {t:"Mission Debrief",b:"Recap the evening so far as if reporting back to HQ after a dangerous mission.",tip:"Losses, wins, and casualties must all be mentioned."},
-      {t:"Self-Destruct Sequence",b:"Announce a 30-second self-destruct countdown to the group. The group must evacuate dramatically.",tip:"The destination is the next bar or the next room."},
     ],
     drink:[
       {t:"Red Alert",b:"Last person to stand at attention when called BATTLE STATIONS buys the next round.",tip:"No warning. Reaction time matters."},
       {t:"Holodeck Malfunction",b:"Everyone freezes completely for 10 full seconds, then all drink together.",tip:"No movement. Not even a blink."},
-      {t:"Phaser Tournament",b:"Rock-paper-scissors: phaser beats shield, shield beats warp, warp beats phaser. Loser drinks.",tip:"Draw the rules on a napkin first."},
       {t:"Warp Core Breach",b:"Waterfall protocol. All drink. You stop only when the person to your left stops.",tip:"You initiate the sequence."},
-      {t:"Captain's Orders",b:"The person who ordered last becomes Captain and chooses one shot for the whole crew.",tip:"No mutiny allowed."},
-      {t:"Stardate Trivia",b:"Name one sci-fi film per person. Duplicate = drink. Silence = drink.",tip:"No repeats allowed in the entire round."},
-      {t:"Alien Toast",b:"Everyone invents a toast in a made-up alien language. All toast simultaneously.",tip:"Translations must be provided. Incorrect translations = extra sip."},
-      {t:"Hyperdrive",b:"Everyone drinks for 5 seconds straight on command. No stopping. No slowing.",tip:"Called by whoever drew the card. No exceptions."},
-      {t:"Systems Check",b:"Go around naming a body part. Anyone who repeats or hesitates drinks.",tip:"Liver is both brave and appropriate."},
+      {t:"Alien Toast",b:"Everyone invents a toast in a made-up alien language. All toast simultaneously.",tip:"Incorrect translations = extra sip."},
+      {t:"Hyperdrive",b:"Everyone drinks for 5 seconds straight on command. No stopping.",tip:"No exceptions."},
     ],
   },
   french:{
     photo:[
       {t:"Les Mimes",b:"Entire group performs as mimes against invisible walls. No sound. Only invisible objects.",tip:"Classic mime energy is the goal."},
-      {t:"Café Philosophers",b:"Sit looking deeply, painfully intellectual. Stare into the distance. Contemplate existence.",tip:"Someone must have a fictional cigarette."},
+      {t:"Café Philosophers",b:"Sit looking deeply, painfully intellectual. Stare into the distance.",tip:"Someone must have a fictional cigarette."},
       {t:"La Grève",b:"Everyone goes on strike. Hold imaginary picket signs. Chant vaguely.",tip:"The French go on strike. You go on strike. It is tradition."},
       {t:"Cancan",b:"The whole group does a cancan line. Three kicks minimum. No excuses.",tip:"Hum the tune together first."},
       {t:"L'Amour",b:"Two people recreate the most dramatic French film kiss. The rest look on enviously.",tip:"Judged by sincerity, not technique."},
-      {t:"Le Boulanger",b:"Pose as if presenting an enormous invisible baguette to an important dignitary.",tip:"The presentation must be solemn."},
-      {t:"L'Existentialiste",b:"Sit in silence looking profoundly tortured. If anyone asks why, say simply: nothing matters.",tip:"Must hold for at least 30 seconds without laughing."},
-      {t:"Le Rendezvous",b:"Two people have an overdramatic secret meeting in the corner. Whisper urgently. Look guilty.",tip:"The rest of the group must pretend not to notice."},
       {t:"Nouvelle Vague",b:"Recreate a black-and-white French film still. Mood is everything. No smiling.",tip:"Someone must look out a window, real or imaginary."},
-      {t:"Le Pique-nique",b:"Sit on the floor anywhere and mime eating a very refined picnic. Invisible wine included.",tip:"At least one person must complain about the cheese selection."},
     ],
     dare:[
       {t:"En Français",b:"Order your next drink entirely in French. Real or approximate French both accepted.",tip:"Bartenders are surprisingly forgiving. Usually."},
-      {t:"Le Pfft",b:"Dismiss someone's opinion with a loud Pfft and a very deliberate hand wave.",tip:"The dismissal must be fully committed. No half-pfft."},
+      {t:"Le Pfft",b:"Dismiss someone's opinion with a loud Pfft and a very deliberate hand wave.",tip:"No half-pfft. Full commitment."},
       {t:"Le Poème",b:"Recite a completely made-up French poem with genuine emotion. At least 4 lines.",tip:"The audience must applaud. They have no choice."},
-      {t:"La Plainte",b:"Complain about something — anything — in the most French way possible. At length.",tip:"The subject must be trivial. The passion must be enormous."},
-      {t:"Le Débat",b:"Debate something completely trivial with enormous passion and hand gestures for 60 seconds.",tip:"The topic: which drink is culturally superior."},
-      {t:"Ooh La La",b:"Say 'Ooh la la' dramatically to every person in the group with full eye contact.",tip:"Intonation is everything."},
-      {t:"L'Éloge du Fromage",b:"Express your love of cheese to the group for 60 straight seconds without repeating yourself.",tip:"No one is judging you. Everyone is judging you."},
-      {t:"Surnoms",b:"Give everyone in the group a pretentious French nickname. Explain each one earnestly.",tip:"The nicknames must feel historically significant."},
-      {t:"L'Élégance",b:"Walk with dramatically heightened elegance for the next 10 minutes. No slouching.",tip:"Violations are handled with cold, French disapproval."},
-      {t:"La Bise",b:"Greet every new person you meet with a double cheek kiss until the next challenge.",tip:"Forehead and air-kiss variations are acceptable."},
-      {t:"Le Monologue",b:"Deliver a 45-second dramatic monologue about unrequited love. In French if possible. Broken English accepted.",tip:"Tears are encouraged. Actual crying gets bonus points."},
-      {t:"Le Critique",b:"Review the bar you are currently in as a French food critic would. Scathing is mandatory.",tip:"Address your review to the bartender directly."},
+      {t:"La Plainte",b:"Complain about something in the most French way possible. At length.",tip:"Trivial subject. Enormous passion."},
+      {t:"Le Monologue",b:"Deliver a 45-second dramatic monologue about unrequited love. In French if possible.",tip:"Tears are encouraged. Actual crying gets bonus points."},
+      {t:"Le Critique",b:"Review the bar you're in as a French food critic would. Scathing is mandatory.",tip:"Address your review to the bartender directly."},
     ],
     drink:[
       {t:"Santé!",b:"Everyone raises their glass, makes full eye contact with every person, and drinks together.",tip:"No eye contact = bad luck. That is the law."},
-      {t:"Dégustation",b:"Eyes closed, take a sip, guess what you are drinking. Wrong = extra sip.",tip:"Name the grape. Name the region. Do your best."},
+      {t:"Dégustation",b:"Eyes closed, take a sip, guess what you are drinking. Wrong = extra sip.",tip:"Name the grape. Name the region."},
       {t:"Le Dernier",b:"Last person to finish their drink decides the next bar. Their authority is absolute.",tip:"No appeals. No delays."},
-      {t:"Sommelier's Choice",b:"The person to your right chooses your next drink. You accept it graciously.",tip:"Complaining is très impoli."},
-      {t:"Le Compte",b:"Count 1 to 10 around the group, one number each. Mess up = drink. Pause too long = drink.",tip:"Speed increases each round."},
-      {t:"Le Mystère",b:"Approach the bartender and ask for something they recommend. Accept it without question.",tip:"This is trust. This is France."},
       {t:"À Votre Santé",b:"Everyone toasts simultaneously, each in a different language. No repeats.",tip:"Someone must say Santé in French. That is the rule."},
-      {t:"Le Vin Aveugle",b:"Everyone closes their eyes. Someone swaps two people's drinks. They must identify what they're now holding.",tip:"The swapper must keep a straight face."},
       {t:"La Tradition",b:"The oldest person in the group dictates what everyone drinks next. Their taste is law.",tip:"No debate. Age equals authority. This is France."},
     ],
   },
   american:{
     photo:[
-      {t:"The Eagle Has Landed",b:"One person is the moon. Others plant a group flag. Add dramatic pointing to the horizon.",tip:"The moon must remain absolutely still throughout."},
+      {t:"The Eagle Has Landed",b:"One person is the moon. Others plant a group flag. Add dramatic pointing to the horizon.",tip:"The moon must remain absolutely still."},
       {t:"Wild West Showdown",b:"Two people face off in a western standoff. The rest watch nervously. Someone fires a finger-gun.",tip:"Tumbleweeds are implied."},
       {t:"Cheerleader Pyramid",b:"Attempt a group pyramid — any size, any configuration, best effort wins.",tip:"Safety second. Glory first."},
-      {t:"Road Trip Photo",b:"Group poses as if packed into an imaginary car, all looking at the horizon ahead.",tip:"Someone must be asleep in the back."},
+      {t:"Road Trip Photo",b:"Group poses as if packed into an imaginary car, all looking at the horizon.",tip:"Someone must be asleep in the back."},
       {t:"Mount Rushmore",b:"Four people form the most dignified stone-faced presidential poses they can manage.",tip:"Extra points for holding completely still for 10 seconds."},
-      {t:"The Bald Eagle",b:"One person spreads arms wide as an eagle. Others gather underneath protectively.",tip:"Hold for 5 seconds. Look proud."},
-      {t:"The Campaign Speech",b:"One person gives a 30-second presidential campaign speech on a raised surface.",tip:"Must end with a patriotic one-liner."},
-      {t:"Drive-Thru Pose",b:"Mime ordering at an imaginary drive-through window with full specificity and urgency.",tip:"Super-size it. Always super-size it."},
-      {t:"Tailgate Party",b:"Group poses as if at the world's greatest tailgate — lawn chairs implied, enthusiasm mandatory.",tip:"Someone must be holding an imaginary foam finger."},
-      {t:"Prom Night",b:"Two people recreate the most awkward prom photo pose possible. Rest of group are the parents.",tip:"The parents must look extremely proud and slightly tearful."},
+      {t:"Prom Night",b:"Two people recreate the most awkward prom photo pose possible. Rest are the parents.",tip:"Parents must look extremely proud and slightly tearful."},
     ],
     dare:[
       {t:"The Motivation",b:"Give a full motivational speech to the group. End it with one powerful word: AMERICA.",tip:"Hand on heart. Chin up."},
       {t:"Starbucks Order",b:"Order your next drink like a Starbucks order: very specific, very personal, at length.",tip:"Include your name. Spell it wrong yourself."},
       {t:"Rate Everything",b:"For the next 10 minutes, rate everything you encounter out loud, out of 10.",tip:"The bar: 8. The lighting: 6. The vibes: absolutely."},
       {t:"Sports Chant",b:"Lead the group in an improvised sports chant for at least 30 seconds. Group must join.",tip:"The sport is irrelevant. The energy is everything."},
-      {t:"The Accent",b:"Speak in a full American accent for the next complete round. No slipping.",tip:"State of origin is your choice. Commit fully."},
-      {t:"The Rap",b:"Perform a 30-second freestyle rap about the group and tonight's events.",tip:"Rhyming is encouraged. Rhyming is not required."},
-      {t:"Quote It",b:"Deliver a famous movie quote. Group must name the film. Wrong guess = they drink.",tip:"Pick wisely. Quote confidently."},
-      {t:"Greatest Night",b:"Convince a willing stranger that tonight is the greatest night in documented history.",tip:"Use statistics. Make them up."},
-      {t:"Extra Extra Extra",b:"Describe everything for the next 5 minutes using extreme superlatives. Everything is MASSIVE.",tip:"Good becomes unbelievably, historically good."},
-      {t:"The John Wayne",b:"Walk in a full John Wayne cowboy swagger to the bar and back. No breaking character.",tip:"The hat is implied. The swagger is mandatory."},
-      {t:"Yelp Review",b:"Give the current bar a live 5-star Yelp review, spoken aloud to the bartender directly.",tip:"Include ambiance, staff, and drink selection. Be specific."},
       {t:"The Podcast",b:"Start a 60-second podcast episode about tonight. You are the host. The group is your audience.",tip:"Sponsor segment mandatory. Make up the sponsor."},
+      {t:"Yelp Review",b:"Give the current bar a live 5-star Yelp review, spoken aloud to the bartender directly.",tip:"Include ambiance, staff, and drink selection. Be specific."},
     ],
     drink:[
       {t:"Freedom Shot",b:"Everyone does a shot together. Because freedom.",tip:"No further justification required."},
       {t:"Fifty States",b:"Go around the group naming US states. Repeat or pause too long = drink.",tip:"Obscure states save lives."},
       {t:"American Roulette",b:"Approach the bartender and say 'Surprise me'. Accept whatever arrives.",tip:"You are brave. You are free. You are drinking that."},
       {t:"Happy Hour",b:"All drink together on a 3-count. No late drinkers. No early drinkers.",tip:"Synchronization is patriotic."},
-      {t:"The Pledge",b:"Last to stand and put their hand on their heart drinks.",tip:"Called with no warning. At any moment."},
-      {t:"Biggest Round",b:"Loudest rendition of any national anthem (any country) wins. Loser buys.",tip:"Volume matters more than accuracy."},
-      {t:"Super Bowl",b:"Arm wrestling match. Loser buys the next round. Crowd required.",tip:"One referee. Objective judging only."},
-      {t:"Black Friday",b:"First person to name 3 things they'd buy at a Black Friday sale drinks last. Everyone else drinks first.",tip:"Speed matters. So does the list."},
-      {t:"Hot Dog or Not",b:"Each person must defend one food as the greatest American contribution to humanity. Group votes. Loser drinks.",tip:"Hot dog is both valid and brave."},
+      {t:"Black Friday",b:"Each person defends one food as the greatest American contribution to humanity. Group votes. Loser drinks.",tip:"Hot dog is both valid and brave."},
     ],
   },
   geek:{
@@ -321,53 +299,34 @@ const CHALLENGES = {
       {t:"Achievement Unlocked",b:"Everyone freezes in a celebration pose as if just completing a final boss fight.",tip:"Caption it: Achievement Unlocked: Bar Crawl 100%."},
       {t:"Loading Screen",b:"Entire group freezes in completely random stuck positions. Hold it for 10 seconds.",tip:"The freeze must be believable. No chosen poses."},
       {t:"Game Over Screen",b:"All fall defeated in dramatic game-over poses. Someone must say game over.",tip:"The dramatic music is implied."},
-      {t:"Victory Royale",b:"Strike the most triumphant winner pose you can, simultaneously, as a group.",tip:"Hold for 3 full seconds. Someone takes the screenshot."},
-      {t:"Final Boss Battle",b:"One person is the final boss. Others attack from different angles dramatically.",tip:"Boss must have a name. Announce it."},
-      {t:"Tutorial Mode",b:"One person explains something obvious to the group as if it's a tutorial popup.",tip:"The subject: how to hold a drink."},
-      {t:"Spawn Camping",b:"Hide under or behind something and pop out dramatically pointing finger-guns.",tip:"Fully commit to the tactical position."},
-      {t:"Split Screen",b:"Group divides into two sides. Both act as if they cannot see the other side at all.",tip:"Must last a full 30 seconds. No breaking."},
+      {t:"Victory Royale",b:"Strike the most triumphant winner pose you can, simultaneously, as a group.",tip:"Hold for 3 full seconds."},
       {t:"Character Select",b:"Everyone strikes their character select screen pose. Freeze. Someone narrates each one.",tip:"Stats must be assigned: strength, charisma, luck."},
-      {t:"Cutscene",b:"Group performs a dramatic 20-second cutscene together. One person directs. No rehearsal.",tip:"Someone must monologue. Someone must gasp. Someone must die."},
-      {t:"Inventory Check",b:"Empty your pockets and bag and display everything like RPG inventory items on the table.",tip:"Each item must be given a rarity rating. Nothing is common."},
+      {t:"Inventory Check",b:"Empty your pockets and display everything like RPG inventory items on the table.",tip:"Each item must be given a rarity rating. Nothing is common."},
     ],
     dare:[
       {t:"NPC Bartender",b:"Try to convince the bartender that they are an NPC with only 3 dialogue options.",tip:"You have one minute. Good luck."},
       {t:"Twitch Stream",b:"Narrate the evening out loud as if you are live-streaming to 40,000 viewers.",tip:"Address your chat. Read fake donations aloud."},
-      {t:"RPG Classes",b:"Assign every person in the group an RPG character class based on personality. Explain each.",tip:"Full justification required for each assignment."},
+      {t:"RPG Classes",b:"Assign every person an RPG character class based on personality. Explain each.",tip:"Full justification required."},
       {t:"Patch Notes",b:"Everyone announces one buff and one nerf to themselves for this evening.",tip:"Buffs must be plausible. Nerfs must be accurate."},
-      {t:"Item Description",b:"Describe your current drink as an inventory item in a fantasy RPG game.",tip:"Include stats, rarity, and use case."},
       {t:"The Matrix Glitch",b:"Announce to the group that you have just discovered a glitch in the simulation.",tip:"Describe the glitch in detail. Remain calm."},
-      {t:"Pokémon Battle",b:"Challenge someone to a Pokémon battle using straws as Pokéballs. Full commentary required.",tip:"Move names must be announced out loud."},
-      {t:"Kill/Death Ratio",b:"Announce your personal K/D ratio for the evening to the group with complete confidence.",tip:"Make it up. Deliver it as fact."},
       {t:"Speedrun",b:"Attempt to speedrun walking from one end of the bar to the other. Someone must time it.",tip:"Submit your time. Attempt to beat it."},
-      {t:"Dying NPC",b:"Perform your best dying video game character sounds and animation. No time limit.",tip:"Include the slow dramatic fall."},
-      {t:"Tech Support",b:"Approach a stranger and offer to provide tech support for their evening. Diagnose their problems.",tip:"Ask about their RAM, their frame rate, their connectivity."},
-      {t:"Easter Egg",b:"Hide a secret word somewhere in every sentence you speak for the next 5 minutes. Group must find it.",tip:"The word is chosen before you start. Tell no one."},
     ],
     drink:[
       {t:"Loot Box",b:"Ask the bartender to choose your next drink. Accept whatever drops.",tip:"The loot is always worth it."},
       {t:"Respawn",b:"First to finish their drink earns one free skip on any future challenge.",tip:"Only one respawn token per game."},
-      {t:"Drink If",b:"Drink if you've ever stayed up past 3am playing a game. Then drink if you've done it twice.",tip:"Nobody is judging. Everyone is judging."},
       {t:"XP Farm",b:"Waterfall. All drink. You stop only when the person to your left stops.",tip:"You initiate the sequence."},
-      {t:"GG Round",b:"Loser of any game or bet drinks. Currently: thumb war. GO.",tip:"One match. Sudden death."},
-      {t:"Final Boss Round",b:"All drink simultaneously on the 3-2-1-GO countdown.",tip:"No hesitation. No mercy."},
       {t:"Level Up",b:"Everyone announces what level they are tonight (1–10). Highest level buys a round.",tip:"Honesty is required. Sort of."},
       {t:"Random Encounter",b:"Point at a random stranger. That person now selects someone in your group to take a drink.",tip:"They don't know what's happening. That's the point."},
-      {t:"Save Point",b:"Everyone agrees on a 'save point' — a time they'd go back to tonight. Most embarrassing one = drinks.",tip:"Honesty is encouraged. Honesty is punished."},
     ],
   },
   music:{
     photo:[
       {t:"Album Cover",b:"Group decides on a genre and poses as a legendary album cover of that genre.",tip:"The genre is chosen by group vote. 10 seconds to pose."},
-      {t:"Guitar Solo",b:"Full air guitar solo. Committed. Eyes closed. Minimum 20 seconds. Full audience.",tip:"Judged by commitment, not technique."},
+      {t:"Guitar Solo",b:"Full air guitar solo. Committed. Eyes closed. Minimum 20 seconds.",tip:"Judged by commitment, not technique."},
       {t:"Backstage VIP",b:"Pose as if backstage after a massive show — exhausted, legendary, and satisfied.",tip:"At least one person must be on the floor."},
       {t:"Stage Dive",b:"Pose mid-dive off of any slightly elevated surface toward the group below.",tip:"The group must look ready to catch."},
-      {t:"The Encore",b:"Bow deeply together, walk toward the exit, then dramatically come back.",tip:"The crowd always wants more."},
-      {t:"Music Video",b:"Freeze frame as if ending a music video. The frame must tell a story.",tip:"Everyone must be in the shot."},
-      {t:"Concert Selfie",b:"All look dramatically upward as if watching the greatest performance of your lives.",tip:"Open mouths. Optional tears."},
-      {t:"Crowd Surf",b:"One person is lifted (safely) and crowd-surfs across the group.",tip:"Safety is optional. Fun is mandatory."},
-      {t:"Press Conference",b:"One person sits and answers questions from the rest of the group as a music legend.",tip:"The legend must be named before the press conference begins."},
-      {t:"Unplugged Session",b:"Group gathers around one person performing an acoustic (mimed) ballad on the floor.",tip:"The audience must look moved. Lighters (phones) in the air."},
+      {t:"Press Conference",b:"One person sits and answers questions from the rest as a music legend.",tip:"The legend must be named before the press conference begins."},
+      {t:"Unplugged Session",b:"Group gathers around one person performing an acoustic (mimed) ballad on the floor.",tip:"Lighters (phones) in the air."},
     ],
     dare:[
       {t:"Opera Order",b:"Sing your next drink order as a full operatic performance.",tip:"Vibrato mandatory. Eye contact with the bartender mandatory."},
@@ -375,24 +334,14 @@ const CHALLENGES = {
       {t:"Band Name",b:"Create the group's band name and genre right now. Everyone must agree.",tip:"The name must be usable in public."},
       {t:"Walk-On Entrance",b:"Perform your full walk-on stage entrance to the next bar. Everyone watches.",tip:"Choose your entrance music. Mime the crowd."},
       {t:"Beatbox",b:"30 seconds of non-stop beatboxing. No pauses. Group rates your performance.",tip:"A zero is not possible. A perfect 10 is possible."},
-      {t:"Rock Star Names",b:"Give every person in the group a stage name. Explain the inspiration for each.",tip:"The name must suit them perfectly. Or not at all."},
-      {t:"Harmony",b:"Harmonize with whatever song is currently playing, loudly, for one full chorus.",tip:"No lyrics required. Just confident sounds."},
-      {t:"Rolling Stone Interview",b:"Interview someone in the group as a Rolling Stone journalist. Ask the serious questions.",tip:"Name drop at least 3 famous artists."},
-      {t:"Air Guitar Rating",b:"Perform an air guitar solo for a song of your choice. Group rates out of 10.",tip:"The song must be announced first."},
-      {t:"Liner Notes",b:"Describe tonight's events so far as if writing the liner notes for a live album.",tip:"At least 3 sentences. Thank the venue."},
-      {t:"Setlist",b:"Write tonight's official setlist on a napkin — real song titles mapped to real events so far.",tip:"The opening track is always the first bar you visited."},
-      {t:"Soundcheck",b:"Tap the mic (any object), say 'Check check, one two' and then deliver a monologue about the group.",tip:"End it with 'We love you [city name]!'"},
+      {t:"Soundcheck",b:"Tap the mic (any object), say 'Check check, one two' then deliver a monologue about the group.",tip:"End it with 'We love you [city name]!'"},
     ],
     drink:[
       {t:"Name That Tune",b:"Hum a song. First to correctly name it doesn't drink. Everyone else does.",tip:"No lyrics. Humming only."},
       {t:"Best Toast Wins",b:"Everyone delivers a toast. Group votes on the best one. Losers drink.",tip:"Style counts. Brevity is appreciated."},
       {t:"The Encore Round",b:"All finish current drink, then order one more together.",tip:"This is the encore. There is always one more."},
       {t:"Chorus Sip",b:"Pick any song playing. Everyone sips every time the chorus hits.",tip:"Choose wisely. Some songs have a lot of choruses."},
-      {t:"One Hit Wonder",b:"Mystery shot chosen by the bartender. You asked for a hit. Here it is.",tip:"No complaints. Only memories."},
-      {t:"Next Track Bet",b:"Everyone guesses the next song to play. Wrong = drink. Right = last place drinks.",tip:"Trust your gut and the playlist."},
-      {t:"Setlist Shot",b:"Every person names one song. If that song plays tonight, they pick a group drink.",tip:"The probability is low. The stakes are high."},
-      {t:"Battle of the Bands",b:"Two people each hum a different song at the same time. Group votes on best performance. Loser drinks.",tip:"Volume is a valid strategy."},
-      {t:"The B-Side",b:"Everyone picks their least-known song by their favourite artist. No one is allowed to know it. Loser drinks.",tip:"Obscurity is the weapon. Deploy it."},
+      {t:"Battle of the Bands",b:"Two people each hum a different song at the same time. Group votes. Loser drinks.",tip:"Volume is a valid strategy."},
     ],
   },
   sexy:{
@@ -400,248 +349,276 @@ const CHALLENGES = {
       {t:"The Smoulder",b:"Serious face, one eyebrow raised, direct camera eye contact. Group photo. No smiling.",tip:"The smoulder cannot be faked. It must be felt."},
       {t:"The Runway",b:"One person walks 5 full paces with maximum catwalk energy. Group watches and reacts.",tip:"Judged on confidence, not speed."},
       {t:"The Power Stance",b:"Most confident, dominant, I-own-this-room stance. Group votes on the winner.",tip:"The winner gets to choose the next bar."},
-      {t:"The Wink",b:"Synchronized group wink at the camera. The timing must be perfect.",tip:"Rehearsal is allowed. One take for the photo."},
       {t:"Magazine Cover",b:"Everyone strikes their most smouldering magazine cover pose simultaneously.",tip:"Fashion, not function. Confidence, not perfection."},
-      {t:"Perfume Commercial",b:"Pose as if starring in a high-end perfume advertisement. Stare into the distance.",tip:"Slow motion is implied. Act like it."},
       {t:"Bond Entrance",b:"Walk past the camera without looking back. Each person one at a time.",tip:"The look back ruins the Bond. Do not look back."},
-      {t:"Slow Motion Entry",b:"Entire group enters the next venue in dramatic slow motion.",tip:"Someone must narrate the entrance."},
-      {t:"The After Party",b:"Pose as if arriving at an exclusive after-party. Confidence at maximum. Coats optional.",tip:"The velvet rope is imaginary. Your attitude is not."},
-      {t:"Red Carpet",b:"Walk an imaginary red carpet one by one. Group are the photographers. Maximum flash energy.",tip:"Each person gets one signature pose. Make it count."},
+      {t:"Red Carpet",b:"Walk an imaginary red carpet one by one. Group are the photographers.",tip:"Each person gets one signature pose. Make it count."},
     ],
     dare:[
       {t:"Maximum Compliment",b:"Give each person in the group a genuine, specific, maximum-effort compliment.",tip:"No repeating compliment types. Each must be unique."},
-      {t:"Speed Date",b:"90-second speed date with the person on your left. Ask real questions.",tip:"A timer is set. No phones. Full attention."},
-      {t:"Beauty Pageant",b:"Give every person in the group a beauty pageant sash title. Read each one aloud.",tip:"Titles must be both specific and absurd."},
+      {t:"Speed Date",b:"90-second speed date with the person on your left. Ask real questions.",tip:"Timer set. No phones. Full attention."},
+      {t:"Beauty Pageant",b:"Give every person a beauty pageant sash title. Read each one aloud.",tip:"Titles must be both specific and absurd."},
       {t:"Staring Contest",b:"Challenge someone to a staring contest. First to look away buys the next round.",tip:"No blinking. No laughing."},
-      {t:"The Chat-Up Line",b:"Deliver your best chat-up line to a willing stranger with full sincerity.",tip:"Outcome irrelevant. Execution judged."},
-      {t:"Flirt Fail",b:"Tell the group your most embarrassing flirting story. In full detail. No skipping.",tip:"The group responds with kindness. Or laughter. Both fine."},
-      {t:"Catwalk Commentary",b:"Provide a full running fashion commentary on your own outfit to the group.",tip:"Be both critic and enthusiast."},
-      {t:"The Proposal",b:"Get down on one knee and propose a friendship toast to a stranger.",tip:"The proposal must include 3 reasons why you chose them."},
-      {t:"The Wink Game",b:"Wink at the next person who walks into the venue. Fully committed, no looking away.",tip:"No half-winks. If you wink, you commit."},
-      {t:"Confident Number Request",b:"Ask someone for their contact info in the most confident way you can manage.",tip:"Outcome does not matter. Style is everything."},
+      {t:"The Serenade",b:"Serenade the person to your right for 20 seconds. Hum, sing, or perform.",tip:"Eye contact mandatory. Breaking it means starting over."},
       {t:"Love Letter",b:"Write a 3-sentence love letter to the bar you are currently in. Read it aloud to the bartender.",tip:"Be sincere. The bar deserves sincerity."},
-      {t:"The Serenade",b:"Serenade the person to your right for 20 seconds. Hum, sing, or perform. No instruments needed.",tip:"Eye contact is mandatory. Breaking it means starting over."},
     ],
     drink:[
       {t:"Truth or Drink",b:"Answer the group's question honestly or take a drink. No partial answers.",tip:"Questions come from the person to your right."},
       {t:"Never Have I Ever",b:"Spicy edition. 5 rounds. Whoever has done the most things drinks at the end.",tip:"Keep it tasteful. Keep it interesting."},
-      {t:"Hot Takes",b:"Everyone gives their hottest take on dating. Most controversial take = everyone drinks.",tip:"No take is too spicy. This is a safe space."},
+      {t:"Hot Takes",b:"Everyone gives their hottest take on dating. Most controversial take = everyone drinks.",tip:"This is a safe space."},
       {t:"Two Truths One Lie",b:"Romantic/social edition. Group must identify the lie.",tip:"The lie should be plausible. The truths surprising."},
-      {t:"Kiss Marry Avoid",b:"Three celebrities chosen by the group. Announce your choices with full explanations.",tip:"The explanations are the point."},
-      {t:"Spin the Bottle",b:"Spin a bottle (or point randomly). Whoever it lands on chooses the next round of drinks.",tip:"No vetoes. Their power is absolute."},
-      {t:"The Wink Game Drink",b:"Everyone secretly winks at one other person. If you catch a wink, call it out. Wrong guess = drink.",tip:"Subtlety is the skill."},
-      {t:"Compatibility Score",b:"Rate your compatibility with each group member out of 10. Lowest average score buys a drink.",tip:"Honesty is optional. Survival is not."},
-      {t:"First Impression",b:"Share your actual first impression of every person in the group. Most surprised person drinks.",tip:"Tactful honesty. The keyword is honesty."},
+      {t:"Compatibility Score",b:"Rate your compatibility with each group member out of 10. Lowest average = buys a drink.",tip:"Honesty is optional. Survival is not."},
     ],
   },
   erasmus:{
     photo:[
-      {t:"United Nations",b:"Every person strikes a pose representing their country (real or chosen). Hold simultaneously.",tip:"Stereotypes are encouraged. Accuracy is optional."},
-      {t:"Hostel Dorm",b:"Everyone piles onto/around a bench or seat pretending it's a 12-bed hostel dorm at 2am.",tip:"Someone must be using a phone torch. Someone must be snoring."},
-      {t:"Language Barrier",b:"Two people try to communicate using only gestures. No words. Subject: where is the nearest bar.",tip:"The confusion is the content."},
-      {t:"Erasmus House Party",b:"Recreate the moment 40 people showed up to a flat that fits 8. Maximum crowd energy in a small space.",tip:"Someone must be holding a plastic cup. Someone must be on the floor."},
-      {t:"Lost in Translation",b:"One person reads directions in a language no one speaks. Everyone else follows them anyway.",tip:"The destination is irrelevant. The confidence is mandatory."},
-      {t:"Postcard Home",b:"Pose as if you're on the front of a postcard. Smile big. Look like you have it all together.",tip:"Caption to be written on a napkin. Must be slightly misleading."},
-      {t:"Student Cooking",b:"Mime preparing and serving the saddest possible student meal with maximum pride.",tip:"Extra points for pasta. Always pasta."},
+      {t:"United Nations",b:"Every person strikes a pose representing their country (real or chosen). Hold simultaneously.",tip:"Stereotypes are encouraged. Accuracy optional."},
+      {t:"Hostel Dorm",b:"Everyone piles onto/around a bench pretending it's a 12-bed hostel dorm at 2am.",tip:"Someone must be using a phone torch. Someone must be snoring."},
+      {t:"Language Barrier",b:"Two people try to communicate using only gestures. Subject: where is the nearest bar.",tip:"The confusion is the content."},
+      {t:"Erasmus House Party",b:"Recreate the moment 40 people showed up to a flat that fits 8.",tip:"Someone must be holding a plastic cup. Someone must be on the floor."},
+      {t:"Postcard Home",b:"Pose as if you're on the front of a postcard. Smile big. Look like you have it all together.",tip:"Caption to be written on a napkin. Slightly misleading."},
       {t:"Flat Meeting",b:"Recreate a passive-aggressive flatmate meeting about the dishes. One person moderates.",tip:"Real grievances can be used. This is catharsis."},
     ],
     dare:[
       {t:"Polyglot Round",b:"Order your drink in a language that is not your own. Any language. Any approximation.",tip:"The bartender's confusion is your success."},
-      {t:"Cultural Exchange",b:"Teach the group a drinking custom from any country — real or invented.",tip:"If it's invented, it must sound completely plausible."},
-      {t:"Flag Quiz",b:"Name 5 countries and their flags from memory. Wrong answer = drink. Incomplete = drink.",tip:"Partial credit does not exist in this game."},
-      {t:"Erasmus Intro",b:"Introduce yourself as if at the first Erasmus welcome event: name, country, programme, fun fact.",tip:"The fun fact must be slightly embarrassing."},
-      {t:"Worst Translation",b:"Translate a phrase from one language to another using only what you half-remember from school.",tip:"Confidence matters. Accuracy does not."},
-      {t:"International Insult",b:"Say something that sounds like an insult in another language. The group must guess what it actually means.",tip:"The funnier the actual meaning, the better."},
-      {t:"Study Abroad Story",b:"Tell your most chaotic travel story in under 60 seconds. Group votes on the most unhinged.",tip:"Whoever wins buys a round. It is worth it."},
-      {t:"Erasmus Budget",b:"Explain to the group how you're surviving financially this semester. Most creative answer = immunity.",tip:"No answer is too sad. This is a safe space."},
+      {t:"Cultural Exchange",b:"Teach the group a drinking custom from any country — real or invented.",tip:"If invented, it must sound completely plausible."},
+      {t:"Erasmus Intro",b:"Introduce yourself as at the first Erasmus welcome event: name, country, programme, fun fact.",tip:"The fun fact must be slightly embarrassing."},
       {t:"Eurovision Dare",b:"Perform your country's greatest (or worst) Eurovision entry. Group must guess the year.",tip:"Commitment to the performance is mandatory."},
       {t:"Schengen Sprint",b:"Name as many Schengen countries as you can in 30 seconds. Fewer than 10 = drink.",tip:"There are 27. You probably won't get them all."},
+      {t:"Study Abroad Story",b:"Tell your most chaotic travel story in under 60 seconds. Group votes on the most unhinged.",tip:"Whoever wins buys a round. It is worth it."},
     ],
     drink:[
-      {t:"International Waterfall",b:"Each person names their country. Drink in alphabetical order of country name. Gaps = group drinks.",tip:"Someone will inevitably forget their country name. It happens."},
       {t:"Language Roulette",b:"Each person says 'cheers' in a different language. Repeat = drink. Blank = drink.",tip:"There are hundreds of options. No excuses."},
       {t:"Erasmus Shot",b:"The person who has visited the most countries buys everyone a shot. Then drinks two.",tip:"It's a reward and a punishment. That's Erasmus."},
-      {t:"Hostel Bar Game",b:"Waterfall but everyone must be holding the drink with their non-dominant hand.",tip:"Spillage is not an excuse to stop."},
       {t:"Budget Round",b:"Everyone pitches in their smallest coin. Whoever has the rarest currency chooses the round.",tip:"If all currencies match, the shortest person chooses."},
-      {t:"Timezone Toast",b:"Toast to a specific time zone — wherever it's currently midnight. If no one knows, everyone drinks.",tip:"Phones out for 10 seconds only. Then they go away."},
+      {t:"Timezone Toast",b:"Toast to wherever it's currently midnight. If no one knows, everyone drinks.",tip:"Phones out for 10 seconds only."},
       {t:"The Departure Gate",b:"Last person to finish their drink misses the metaphorical flight and buys the next round.",tip:"There is no delay. There is no gate change. Drink."},
-      {t:"Flat Quiz",b:"Questions about every flatmate/group member. Wrong answer = drink. Silence = two drinks.",tip:"You should know these people by now."},
     ],
   },
   pirate:{
     photo:[
-      {t:"Walk the Plank",b:"One person balances on any line or edge. Others hold fake swords. Dramatic resignation face required.",tip:"The plank is a curb, a step, or a bench edge. Any ledge will do."},
-      {t:"Crew Portrait",b:"Line up like a classic pirate crew. Tallest at back. Captain front and centre. Everyone menacing.",tip:"The Captain must have one hand on hip and one pointing to sea."},
-      {t:"Treasure Map",b:"One person draws a treasure map on a napkin. The treasure is the next bar. Photo of the map.",tip:"Include an X. Include a sea monster. Non-negotiable."},
-      {t:"The Jolly Roger",b:"Form the skull and crossbones shape as a group. Two people are the bones. One is the skull.",tip:"The skull must look terrifying. Silliness is acceptable."},
+      {t:"Walk the Plank",b:"One person balances on any ledge. Others hold fake swords. Dramatic resignation face required.",tip:"The plank is a curb, a step, or a bench edge."},
+      {t:"Crew Portrait",b:"Line up like a classic pirate crew. Tallest at back. Captain front and centre.",tip:"The Captain must have one hand on hip and one pointing to sea."},
+      {t:"Treasure Map",b:"One person draws a treasure map on a napkin. The treasure is the next bar.",tip:"Include an X. Include a sea monster. Non-negotiable."},
       {t:"Marooned",b:"One person sits alone on an 'island' (chair, table corner) looking dramatically abandoned.",tip:"The rest of the crew sails away in the background."},
       {t:"The Boarding Party",b:"Group pretends to board a ship from the side — climbing over a railing or ledge dramatically.",tip:"Cutlasses (straws, bottles) must be drawn."},
       {t:"Crow's Nest",b:"One person climbs to any elevated position and scans the horizon dramatically.",tip:"They must announce what they see. Make it interesting."},
-      {t:"Buried Treasure",b:"Group buries something small (a coin, a receipt) somewhere in the bar. Photo of the burial.",tip:"Someone must guard it. Someone must look guilty."},
     ],
     dare:[
       {t:"Pirate Speak",b:"Speak exclusively in pirate dialect for the next full round. Violations = drink.",tip:"Arr, shiver me timbers, and avast are your friends."},
-      {t:"The Oath of the Crew",b:"Every member swears the crew oath — made up on the spot by the Captain. It must be repeated exactly.",tip:"The Captain should make it deliberately hard to memorise."},
-      {t:"Treasure or Grog",b:"Challenge someone outside the group to a quick game. If they win, buy them a drink. If you win, they do a dare.",tip:"The game is thumb war. Terms must be agreed before starting."},
-      {t:"Plunder the Bar",b:"Negotiate something free from the bar — a straw, a napkin, a garnish — using only pirate charm.",tip:"Politeness is not piracy. Boldness is."},
-      {t:"Mutiny Speech",b:"Deliver a full mutiny speech against the current group leader. It must include 3 grievances.",tip:"The Captain may respond. The crew votes."},
+      {t:"Mutiny Speech",b:"Deliver a full mutiny speech against the current group leader. Must include 3 grievances.",tip:"The Captain may respond. The crew votes."},
+      {t:"The Sea Shanty",b:"Lead the group in a sea shanty — real or improvised. Everyone must join the chorus.",tip:"Chorus repeated 3 times minimum. Volume increases each time."},
+      {t:"Parrot Mode",b:"Repeat everything the person to your left says for the next 5 minutes.",tip:"Arguments are part of the experience."},
+      {t:"Cannon Fire",b:"Point at someone across the bar and shout FIRE! They must dramatically dodge or be 'hit'.",tip:"Full commitment from both parties."},
       {t:"Name Thy Ship",b:"Name the group's ship and explain its history. At least 3 battles must be mentioned.",tip:"The ship must have a reputation. Build it."},
-      {t:"The Sea Shanty",b:"Lead the group in a sea shanty — real or improvised. Everyone must join the chorus.",tip:"The chorus is repeated 3 times minimum. Volume increases each time."},
-      {t:"Treasure Hunt",b:"Hide one personal item somewhere in the bar. Give the group a 3-clue treasure hunt to find it.",tip:"Clues must be pirate-themed. Obviously."},
-      {t:"Cannon Fire",b:"Point at someone across the bar and shout FIRE! They must dramatically dodge or be 'hit'.",tip:"Full commitment from both parties. Bystanders may participate voluntarily."},
-      {t:"Parrot Mode",b:"Repeat everything the person to your left says for the next 5 minutes. Every single thing.",tip:"Arguments are part of the experience."},
     ],
     drink:[
       {t:"Rum Ration",b:"Captain calls RUM RATION. All drink simultaneously. No delays. No exceptions.",tip:"The Captain is whoever last completed a challenge."},
       {t:"Davy Jones",b:"Last to slam their glass down after drinking buys the next round.",tip:"No warning. Called at any time."},
-      {t:"The Mutiny Vote",b:"Group votes on who has been the worst pirate tonight. They choose everyone's next drink.",tip:"Worst pirate = most power. Interesting system."},
       {t:"Shipwreck",b:"Waterfall. Everyone drinks. You stop when the person on your left stops. Captain goes last.",tip:"Captain earns the privilege. Captain pays the price."},
-      {t:"Plunder or Drink",b:"Challenge anyone in the group to rock-paper-scissors. Loser drinks. Winner takes one item of theirs (returned later).",tip:"Items are returned at the end of the night. Probably."},
-      {t:"Black Spot",b:"Draw a black dot on a napkin. Pass it secretly. Whoever has it when the next challenge ends drinks twice.",tip:"You may pass it on by shaking hands, high-fiving, or hugging someone."},
+      {t:"Black Spot",b:"Draw a black dot on a napkin. Pass it secretly. Whoever has it when the next challenge ends drinks twice.",tip:"You may pass it by shaking hands or hugging someone."},
       {t:"The Kraken",b:"Everyone drinks together while making the most dramatic sea monster sound they can.",tip:"Longest sound wins immunity from the next drink challenge."},
-      {t:"Dead Man's Chest",b:"Mystery shot. No one orders it specifically — the bartender chooses. Fifteen men on the dead man's chest.",tip:"Yo ho ho and a shot of something."},
     ],
   },
   projetx:{
     photo:[
-      {t:"The Aftermath",b:"Recreate a scene that looks like the morning after the greatest party ever. One person is still asleep.",tip:"Dishevelled hair is an asset. Dignity is not required."},
+      {t:"The Aftermath",b:"Recreate a scene that looks like the morning after the greatest party ever.",tip:"Dishevelled hair is an asset. Dignity is not required."},
       {t:"CCTV Still",b:"Pose as if caught doing something suspicious on a security camera. Freeze. Look guilty.",tip:"Context is not provided. Context is not needed."},
-      {t:"The Evidence",b:"Stage the most incriminating group photo possible. It must look like a news story.",tip:"Headline to be written on a napkin: 'Local group caught...'"},
-      {t:"The Viral Moment",b:"Re-enact a moment that looks like it would get 2 million views for the wrong reasons.",tip:"The caption must be written immediately after."},
-      {t:"VIP Section",b:"Rope off an area of the bar using jackets, bags, or scarves. Sit inside. Refuse entry to others.",tip:"The VIP list is determined by the person who drew the card."},
-      {t:"The Uninvited Guest",b:"One person crashes the group photo of total strangers nearby. Full commitment.",tip:"The rest of the group documents this from a distance."},
+      {t:"The Evidence",b:"Stage the most incriminating group photo possible. It must look like a news story.",tip:"Headline to be written on a napkin."},
+      {t:"VIP Section",b:"Rope off an area of the bar using jackets and bags. Sit inside. Refuse entry to others.",tip:"The VIP list is determined by the person who drew the card."},
       {t:"3am Decision",b:"Pose as if about to make the worst decision of your life. The group must look supportive.",tip:"The decision is implied. Never spoken."},
       {t:"The Cleanup Crew",b:"Mime cleaning up after a catastrophic party in a destroyed apartment. Look dead inside.",tip:"Someone must be mopping. Someone must be holding a bin bag."},
     ],
     dare:[
-      {t:"Guest List",b:"Create a 10-person guest list for the ultimate party. Explain every choice to the group.",tip:"Three must be celebrities. One must be controversial."},
+      {t:"Guest List",b:"Create a 10-person guest list for the ultimate party. Explain every choice.",tip:"Three must be celebrities. One must be controversial."},
       {t:"Security Briefing",b:"Brief the group on tonight's rules as if you are head of security at an underground event.",tip:"At least 5 rules. At least 2 must be completely unenforceable."},
-      {t:"The Rumour",b:"Start a completely harmless but ridiculous rumour about the bar you're in. Spread it to 2 strangers.",tip:"The rumour must be about the bar, not a person."},
       {t:"DJ Set",b:"Announce your DJ name and perform a 30-second set using beatbox and hand movements.",tip:"Track listing must be announced in advance."},
-      {t:"The Afterparty Invite",b:"Invite a willing stranger to a fake afterparty. Give the address. Make it sound incredible.",tip:"The address is fictional. The enthusiasm is not."},
-      {t:"VIP Treatment",b:"Treat one person in the group like an absolute A-list celebrity for 5 minutes. Everything they want.",tip:"Announcements must be made when they enter or leave any space."},
       {t:"The Promoter",b:"Promote the next bar on the crawl to 3 strangers as if it's the hottest venue in the city.",tip:"Entry is free tonight only. Limited capacity. Act accordingly."},
-      {t:"The Legend",b:"Tell 3 strangers the same story about something insane that 'happened here last week.'",tip:"Each retelling must be slightly more dramatic."},
-      {t:"No Photos Policy",b:"Confiscate (then immediately return) someone's phone, citing the strict no-photos policy of this establishment.",tip:"Must be done with complete seriousness. Then laugh."},
+      {t:"VIP Treatment",b:"Treat one person in the group like an absolute A-list celebrity for 5 minutes.",tip:"Announcements must be made when they enter or leave any space."},
       {t:"The Headliner",b:"Announce to the bar that the headliner has just arrived. Then walk in dramatically.",tip:"The rest of the group creates the crowd reaction."},
     ],
     drink:[
-      {t:"Open Bar",b:"The person who most looks like they've been awake for 3 days (group vote) chooses the next round.",tip:"The winner gets to choose. The winner is also the loser."},
       {t:"Pre-drink Waterfall",b:"Fastest waterfall yet. All drink. No pausing. Last one holding their glass finishes everyone's.",tip:"This is the Projet X. This is what you signed up for."},
       {t:"The Guest List Vote",b:"Group votes on who would be rejected at the door tonight. They buy the next round.",tip:"Criteria: vibes only. No appeals."},
       {t:"3am Regret",b:"Everyone shares a 3am decision they regret. Most unhinged story = immunity. Rest drink.",tip:"Vagueness is not allowed. Details are required."},
       {t:"The Cup",b:"Everyone pours a small amount of their drink into one cup. Last person to draw the card tonight must drink it.",tip:"Track the cup. Keep it somewhere visible."},
-      {t:"Chaos Round",b:"No rules for 2 minutes. First person to break character (act sober and normal) drinks.",tip:"The bar staff are watching. Calibrate accordingly."},
-      {t:"Afterparty Bet",b:"Everyone bets on who will last the longest tonight. Lowest vote = buys next round.",tip:"The bet is made now. Consequences arrive later."},
-      {t:"The Roster",b:"Name everyone who said 'I'm not drinking tonight' before coming out. Each name = one sip.",tip:"If anyone is here who said that, they drink double."},
+      {t:"The Roster",b:"Name everyone who said 'I'm not drinking tonight' before coming out. Each name = one sip.",tip:"If anyone here said that, they drink double."},
     ],
   },
   greenflag:{
     photo:[
       {t:"Vibe Check",b:"Capture the exact vibe of the group right now. No posing. Just the real moment.",tip:"Best photo wins the round. Group votes."},
-      {t:"Wholesome Chaos",b:"Create the most chaotic but wholesome group photo possible. Joyful energy only.",tip:"Screaming is allowed. Sadness is not."},
       {t:"The Hug Train",b:"Everyone hugs in a chain — each person hugging from behind. Longest hold wins.",tip:"Time it. Beat 10 seconds for bonus points."},
-      {t:"Best Smile",b:"On 3, everyone does their absolute best smile. Most genuine wins immunity from next dare.",tip:"Genuine only. Smirks don't count."},
-      {t:"Friend Portrait",b:"Each person takes a candid photo of the person to their left. Best portrait wins.",tip:"Subject cannot pose. Photographer cannot warn them."},
+      {t:"Friend Portrait",b:"Each person takes a candid photo of the person to their left.",tip:"Subject cannot pose. Photographer cannot warn them."},
       {t:"Good Energy Circle",b:"Everyone stands in a circle, arms around each other, and looks like they mean it.",tip:"At least 5 seconds. Eyes open. Real smiles."},
-      {t:"The Compliment Pose",b:"Each person points at the person who complimented them most tonight. Then group photo.",tip:"If no one has been complimented yet, fix that first."},
-      {t:"Peak Night",b:"Photograph what you agree is the peak moment of the evening so far.",tip:"Group must unanimously agree. If not, keep going until they do."},
+      {t:"Peak Night",b:"Photograph what you agree is the peak moment of the evening so far.",tip:"Group must unanimously agree."},
     ],
     dare:[
-      {t:"Compliment Stranger",b:"Give a genuine, specific compliment to a stranger. No generic ones. Make it real.",tip:"Shoes, energy, laugh, presence — anything that's actually true."},
-      {t:"Good Deed Dare",b:"Do one small good thing in the bar — help someone, pick something up, hold a door.",tip:"No announcement. No photos. Just do it."},
-      {t:"Affirmation Round",b:"Go around the group. Each person says one thing they genuinely appreciate about the person to their left.",tip:"No repeating. No joking. Real answers only."},
+      {t:"Compliment Stranger",b:"Give a genuine, specific compliment to a stranger. No generic ones. Make it real.",tip:"Shoes, energy, laugh, presence — anything actually true."},
+      {t:"Affirmation Round",b:"Each person says one thing they genuinely appreciate about the person to their left.",tip:"No joking. Real answers only."},
       {t:"Hype Person",b:"For the next 5 minutes, every time anyone in the group does anything, hype them up.",tip:"They ordered a drink? Incredible. They sat down? Legend."},
-      {t:"Thank You Note",b:"Write a thank-you note (on a napkin) to the bar staff and leave it with a good tip.",tip:"It must include at least one specific thing they did well."},
-      {t:"Check In",b:"Ask every person in the group how they're really doing tonight. Listen to the answers.",tip:"No phones during this one. 60 seconds per person."},
-      {t:"Green Flag Report",b:"Each person names the biggest green flag they've spotted in the group tonight.",tip:"Specificity is required. Vague answers are not accepted."},
-      {t:"Best Memory",b:"Share your favourite memory with someone in the group. They must respond with theirs.",tip:"Must be a real memory. Points for specificity."},
-      {t:"Encourage a Stranger",b:"Find someone at the bar who looks like they need a kind word. Offer one.",tip:"Read the room. Be genuine. Walk away before it gets awkward."},
-      {t:"Group Gratitude",b:"Everyone names one thing they're grateful for tonight. No irony. Real answers.",tip:"Phone-free. Eye contact. Honesty encouraged."},
+      {t:"Check In",b:"Ask every person in the group how they're really doing tonight. Listen to the answers.",tip:"No phones during this one."},
+      {t:"Group Gratitude",b:"Everyone names one thing they're grateful for tonight. No irony.",tip:"Phone-free. Eye contact. Honesty encouraged."},
     ],
     drink:[
-      {t:"Cheers for Real",b:"Make real eye contact with every person and mean it when you clink glasses.",tip:"No phone in hand. Full presence. One at a time."},
-      {t:"Best Moment Vote",b:"Vote for the best moment of the night so far. Most votes = they don't drink. Everyone else does.",tip:"Majority rules. No campaigns. Just vibes."},
+      {t:"Cheers for Real",b:"Make real eye contact with every person and mean it when you clink glasses.",tip:"No phone in hand. Full presence."},
       {t:"Gratitude Shot",b:"Name something you're grateful for before every sip this round. No repeating.",tip:"Run out of answers = finish your drink."},
-      {t:"Good Person Round",b:"Each person names the kindest thing they've done today. Can't think of one = drink.",tip:"Small things count. Holding a door counts."},
-      {t:"Green Flag Toast",b:"Each person toasts the biggest green flag they've seen in someone tonight. Drink after each one.",tip:"Sincere toasts only. The group decides."},
+      {t:"Green Flag Toast",b:"Each person toasts the biggest green flag they've seen in someone tonight. Drink after each one.",tip:"Sincere toasts only."},
       {t:"The Real MVP",b:"Group votes on who has been the best version of themselves tonight. MVP chooses next round.",tip:"The vote is anonymous. Fingers point simultaneously."},
-      {t:"Positivity Tax",b:"Every complaint for the next 10 minutes costs one sip. The group monitors.",tip:"Negativity has consequences. Vibes are protected."},
-      {t:"Hydration Check",b:"Everyone must finish their current drink and then order one glass of water before ordering the next round.",tip:"This is a green flag game. We look after each other."},
+      {t:"Hydration Check",b:"Everyone finishes their current drink and orders one glass of water before the next round.",tip:"We look after each other."},
     ],
   },
   hangover:{
     photo:[
       {t:"Crime Scene",b:"Recreate a scene that looks like the aftermath of a night no one can explain.",tip:"Items on the floor, someone under a table, one person still dressed from yesterday."},
       {t:"The Regret",b:"Each person holds their head in their hands and poses for a portrait of pure regret.",tip:"Most convincing performance wins. Group votes."},
-      {t:"3am Text",b:"Act out the moment someone sent a text they definitely shouldn't have. The group is the audience.",tip:"The recipient in the group must react in real time."},
-      {t:"Missing Person",b:"Recreate the moment the group realised someone was gone. Full panic energy.",tip:"The missing person is dramatically revealed at the end."},
       {t:"The Walk of Shame",b:"One person performs the walk of shame past the group. Others react appropriately.",tip:"Sunglasses (even fake ones) are required."},
-      {t:"Blackout Reconstruction",b:"Each person mimes one thing they definitely did last time they blacked out. Group guesses.",tip:"No verbal hints. Mime only."},
-      {t:"Hotel Room",b:"Recreate a hotel room at 9am checkout with 4 people and one working brain cell.",tip:"Someone must still be in 'bed'. Someone must be searching for something."},
-      {t:"The Group Chat",b:"Act out the group chat from the morning after a messy night. One person reads. Others react.",tip:"The messages are improvised. The reactions must be real."},
+      {t:"Hotel Room",b:"Recreate a hotel room at 9am checkout with 4 people and one working brain cell.",tip:"Someone must still be in 'bed'."},
+      {t:"The Group Chat",b:"Act out the group chat from the morning after a messy night.",tip:"The messages are improvised. The reactions must be real."},
     ],
     dare:[
-      {t:"Explain Yourself",b:"Confess one thing you did on a night out that you've never fully explained. Right now.",tip:"The group may ask 3 follow-up questions. You must answer."},
-      {t:"The Diagnosis",b:"Diagnose every person in the group with the hangover type they'd have tomorrow morning.",tip:"Types include: crier, texter, swears they're never drinking again, hungry, fine somehow."},
-      {t:"Hair of the Dog Pitch",b:"Convince the group that the worst possible drink is actually a legitimate hangover cure.",tip:"You have 60 seconds. Nutritional logic optional."},
-      {t:"Blackout Voicemail",b:"Leave yourself a voicemail as if it's 3am and you're in your feelings. Play it to the group.",tip:"Future you will hear this. Let that guide you."},
-      {t:"The Alibi",b:"Construct a complete alibi for last Saturday night and present it to the group as fact.",tip:"It must be internally consistent. You have 90 seconds."},
-      {t:"Hangover Order",b:"Order the most elaborate hangover breakfast from the bartender — as if they're a brunch menu.",tip:"The bartender cannot help you. You must commit anyway."},
-      {t:"The Group Diagnosis",b:"Tell the group exactly what kind of mess they'll be tomorrow morning. Personalise each one.",tip:"Specificity is required. Accuracy will be judged retroactively."},
-      {t:"Never Again Speech",b:"Deliver a full 'I'm never drinking again' speech. The group times how long before they laugh.",tip:"Longest straight-face time = drinks least. Shortest = drinks most."},
+      {t:"Explain Yourself",b:"Confess one thing you did on a night out that you've never fully explained.",tip:"The group may ask 3 follow-up questions. You must answer."},
+      {t:"Never Again Speech",b:"Deliver a full 'I'm never drinking again' speech.",tip:"Longest straight-face time = drinks least. Shortest = drinks most."},
       {t:"Lost Property",b:"Each person lists three things they've lost on a night out in their lifetime. Most items = buys a round.",tip:"Keys, phones, shoes, dignity — all count."},
+      {t:"The Diagnosis",b:"Diagnose every person with the hangover type they'd have tomorrow morning.",tip:"Types: crier, texter, swears never again, hungry, somehow fine."},
       {t:"The Intervention",b:"Stage a mock intervention for one group member about their 'chaotic night out' behaviour.",tip:"Must include at least 4 real examples. Must end in applause."},
     ],
     drink:[
-      {t:"Hair of the Dog",b:"Everyone orders the same drink. The person who looks most hungover chooses what it is.",tip:"Looking hangover at 9pm is impressive. Respect it."},
-      {t:"The Shame Spiral",b:"Each person admits one mildly embarrassing thing they've done on a night out. Most relatable = drinks.",tip:"Voted by group. Most common experience loses."},
-      {t:"Blackout Roulette",b:"Everyone picks a number 1–10. Bartender picks a number. Closest person buys the round.",tip:"No changing your number after it's written down."},
-      {t:"The Group Chat",b:"Read out the last thing you sent in a group chat after midnight. Most embarrassing drinks free.",tip:"Screenshots accepted. Reading aloud mandatory."},
-      {t:"Waterfall of Regret",b:"Waterfall. Everyone drinks. As you drink, announce one thing you regret from a past night out.",tip:"The regret must be stated before you stop drinking."},
-      {t:"The Budget Check",b:"Everyone checks how much they spent last Saturday night. Highest spender drinks free. Lowest buys.",tip:"Screenshots accepted. Honesty encouraged."},
+      {t:"Hair of the Dog",b:"Everyone orders the same drink. The person who looks most hungover chooses what it is.",tip:"Looking hungover at 9pm is impressive. Respect it."},
+      {t:"Waterfall of Regret",b:"Waterfall. As you drink, announce one thing you regret from a past night out.",tip:"The regret must be stated before you stop drinking."},
+      {t:"The Budget Check",b:"Everyone checks how much they spent last Saturday night. Highest spender drinks free. Lowest buys.",tip:"Screenshots accepted. Honesty enforced by peer pressure."},
       {t:"Symptom Round",b:"Name a hangover symptom. No repeats. Anyone who hesitates or repeats drinks.",tip:"There are more than you think. Think fast."},
-      {t:"The Morning After",b:"Describe what you'd be doing right now if this were a hangover Sunday morning. Most tragic story = immunity.",tip:"Pathetic is the goal. Compete for the floor."},
+      {t:"Blackout Roulette",b:"Everyone picks a number 1–10. Bartender picks a number. Closest person buys the round.",tip:"No changing your number after it's written down."},
     ],
   },
   mrworldwide:{
     photo:[
-      {t:"Atlas Pose",b:"One person holds up the world (an imaginary globe or someone crouching). Others orbit dramatically.",tip:"The world must look heavy. The orbits must look cosmic."},
-      {t:"World Leaders",b:"Each person becomes the leader of a different country. Group summit photo.",tip:"Body language must match the country's reputation. Roughly."},
-      {t:"Passport Control",b:"Two people play passport control and tourist. The tourist must explain their whole life.",tip:"The officer must look unconvinced. Stamp denial is encouraged."},
-      {t:"Global Handshake",b:"Go around the group shaking hands in a different cultural style for each person.",tip:"Research or improvise. Both are acceptable."},
-      {t:"Around the World",b:"The group forms a circle and each person names a country as they do one full spin.",tip:"Arms out. Spin committed. Volume appropriate."},
-      {t:"The Departure Board",b:"Everyone freezes as if waiting for a delayed flight. Express the specific pain of gate changes.",tip:"Someone must be asleep on their bag. Someone must be on the phone."},
-      {t:"World Map",b:"Without speaking, arrange yourselves in a rough geographic order of where you're from.",tip:"Debate is inevitable. Argument is acceptable. Photo when settled."},
-      {t:"The Globetrotter",b:"One person mimes arriving in a new country — customs, first breath of air, dramatic realization.",tip:"The country is chosen by the group. Secretly. Revealed after."},
+      {t:"Atlas Pose",b:"One person holds up the world (an imaginary globe). Others orbit dramatically.",tip:"The world must look heavy. The orbits must look cosmic."},
+      {t:"World Leaders",b:"Each person becomes the leader of a different country. Group summit photo.",tip:"Body language must match the country's reputation."},
+      {t:"Passport Control",b:"Two people play passport control and tourist. The tourist must explain their whole life.",tip:"The officer must look unconvinced."},
+      {t:"The Departure Board",b:"Everyone freezes as if waiting for a delayed flight.",tip:"Someone must be asleep on their bag. Someone must be on the phone."},
+      {t:"World Map",b:"Without speaking, arrange yourselves in geographic order of where you're from.",tip:"Debate is inevitable. Argument is acceptable."},
     ],
     dare:[
       {t:"Accent Roulette",b:"Each person speaks in a different accent for the next 3 minutes. Group assigns the accents.",tip:"No one gets their own accent. That would be cheating."},
-      {t:"World Capitals",b:"Go around the group naming world capitals. Wrong or silent = drink. Speed increases.",tip:"The obscure ones will destroy friendships. That is the point."},
-      {t:"Currency Exchange",b:"Negotiate a 'trade' with someone in the group — any personal item — using fake foreign currency.",tip:"Establish the exchange rate first. Honour it."},
-      {t:"United Nations Speech",b:"Deliver a 60-second speech to the 'General Assembly' (the group) on a global issue of your choosing.",tip:"Must include a resolution. Must end with applause. The group will provide."},
-      {t:"World Record Attempt",b:"Attempt to break a world record right now. Define the record yourself. Time it.",tip:"Fastest to name 10 animals. Most claps in 10 seconds. Be creative."},
-      {t:"Tour Guide",b:"Give a 60-second tour of the bar as if it's a world-famous landmark.",tip:"Include history, architecture, and cultural significance. Make it all up."},
-      {t:"Language Immersion",b:"Spend 3 minutes speaking only in a language not your own. No English fallback.",tip:"Approximation counts. Silence does not."},
-      {t:"Time Zone",b:"Each person names a city and what people there are doing right now at that exact time.",tip:"Accuracy not required. Confidence mandatory."},
-      {t:"Diplomacy",b:"Negotiate a peace treaty between two group members who 'represent' rival countries.",tip:"The countries are assigned randomly. The conflict is defined by the group."},
+      {t:"World Capitals",b:"Go around the group naming world capitals. Wrong or silent = drink.",tip:"The obscure ones will destroy friendships. That is the point."},
+      {t:"United Nations Speech",b:"Deliver a 60-second speech to the 'General Assembly' on a global issue of your choosing.",tip:"Must include a resolution. Must end with applause."},
       {t:"Pitbull Tribute",b:"Announce yourself as Mr Worldwide and deliver a 30-second speech referencing at least 5 countries.",tip:"This is your moment. Dale."},
+      {t:"Tour Guide",b:"Give a 60-second tour of the bar as if it's a world-famous landmark.",tip:"Include history, architecture, and cultural significance. Make it all up."},
     ],
     drink:[
-      {t:"International Waterfall",b:"Each person assigns themselves a country. Drink in order of population — highest first.",tip:"No phones to check. Argue it out. Drink based on consensus."},
-      {t:"World Cup",b:"Two people face off in any quick game. Winner advances. Loser buys. Round continues.",tip:"The game is chosen by whoever drew the card."},
-      {t:"Exchange Rate",b:"Each person secretly sets the price of their next round in a fake currency. Lowest bidder pays real.",tip:"Amounts negotiated at the table. No outside market consultation."},
       {t:"Summit Drink",b:"All drink simultaneously after a 3-count in any language that isn't English.",tip:"The language is chosen by group vote. 10 seconds to decide."},
-      {t:"Geography Round",b:"Name a country for every letter of the alphabet. Group effort. Wrong or repeated = everyone drinks.",tip:"X is the wildcard. Someone always panics. It's always funny."},
-      {t:"Jet Lag",b:"Everyone acts as if they've just landed from a 14-hour flight. Confused, exhausted, slightly lost.",tip:"Stay in character for the next full challenge. Violations = drink."},
+      {t:"Geography Round",b:"Name a country for every letter of the alphabet. Group effort. Wrong or repeated = everyone drinks.",tip:"X is the wildcard. Someone always panics."},
       {t:"The Dale",b:"Last person to say DALE when called drinks. Called with no warning. At any time.",tip:"It's a Pitbull reference. You're playing Mr Worldwide. Keep up."},
-      {t:"Frequent Flyer",b:"Most countries visited = chooses the round. Least countries visited = pays for it.",tip:"Honesty enforced by peer pressure. Lying costs a forfeit."},
+      {t:"Frequent Flyer",b:"Most countries visited = chooses the round. Least countries visited = pays for it.",tip:"Honesty enforced by peer pressure."},
+      {t:"World Cup",b:"Two people face off in any quick game. Winner advances. Loser buys. Round continues.",tip:"The game is chosen by whoever drew the card."},
+    ],
+  },
+  lithuania:{
+    photo:[
+      {t:"Kaunas Pose",b:"Group poses dramatically in front of any building as if it's a Lithuanian national monument.",tip:"Laisvės Alėja energy. Maximum civic pride."},
+      {t:"Žalgiris Spirit",b:"Everyone poses as if their basketball team just won the Euroleague. Maximum celebration.",tip:"Someone must be crying happy tears. Someone must be on the floor."},
+      {t:"Perkūnas Thunder",b:"Group summons the Lithuanian thunder god — dramatic sky-pointing, war faces, power stances.",tip:"The thunder god demands commitment."},
+      {t:"Kugelis Appreciation",b:"Everyone mimes eating the greatest potato dish they've ever had. Eyes closed. Full joy.",tip:"It's kugelis. It's always kugelis."},
+      {t:"Baltic Pride",b:"Form the Baltic Way — everyone links hands in a chain and holds for 10 seconds.",tip:"Extra points if you can extend to actual strangers."},
+      {t:"Užgavėnės",b:"Group enacts the defeat of winter — one person is winter, falling dramatically. Others cheer.",tip:"The spring bringer must look triumphant. Winter must suffer convincingly."},
+      {t:"Kaunas Fortress",b:"Group fortifies a corner of the bar as Lithuanian territory. No enemies may enter.",tip:"Mark the border. Defend it. Ask no questions."},
+      {t:"Amber Collection",b:"Each person finds the most amber-coloured object nearby and presents it solemnly to the group.",tip:"Drinks count. Judge by shade and presentation."},
+    ],
+    dare:[
+      {t:"Labas!",b:"Greet every person you pass for the next 10 minutes with a confident Labas! and a nod.",tip:"Lithuanians nod. It is the law. It is enough."},
+      {t:"Alus Review",b:"Review your current drink as if writing for a prestigious Lithuanian beer journal.",tip:"Include notes on bitterness, heritage, and national character."},
+      {t:"Kaunas Tour Guide",b:"Give a 60-second tour of the bar as if it's a historically significant Kaunas landmark.",tip:"Mention the architecture. Mention the interwar period. Always the interwar period."},
+      {t:"Lithuanian History Lecture",b:"Deliver a 45-second passionate lecture on any event from Lithuanian history.",tip:"The Grand Duchy of Lithuania is always acceptable. Always."},
+      {t:"Basket Ball Coach",b:"Coach the group on basketball tactics for 60 seconds. Assign positions. Draw plays on a napkin.",tip:"You are Šarūnas Jasikevičius. Act accordingly."},
+      {t:"National Song",b:"Lead the group in humming the Lithuanian national anthem. Everyone must join.",tip:"Tautiška giesmė. Full chest. No shame."},
+      {t:"Potato Debate",b:"Passionately defend a specific Lithuanian potato dish as the greatest food in human history.",tip:"Kugelis, cepelinai, or bulviniai blynai. Choose your fighter."},
+      {t:"Rūpintojėlis",b:"Strike the most sorrowful, contemplative, chin-resting pose you can and hold it for 30 seconds.",tip:"You are the Pensive Christ of Lithuania. Channel him."},
+      {t:"Soviet Nostalgia",b:"Describe the bar you're in as if writing a Soviet-era travel brochure. Keep it positive.",tip:"The lighting is described as 'functional'. The drinks as 'plentiful'."},
+      {t:"Dainava",b:"Improvise a folk song about the group right now. It must include at least 2 nature references.",tip:"Rivers, forests, amber, rye. You have the ingredients."},
+    ],
+    drink:[
+      {t:"Į Sveikatą!",b:"Everyone toasts in Lithuanian — Į sveikatą! — with full eye contact. All drink together.",tip:"No eye contact = bad luck. This rule predates the republic."},
+      {t:"Alus Ratas",b:"Go around the group naming Lithuanian cities. Repeat or hesitate = drink.",tip:"Kaunas, Vilnius, Klaipėda — then it gets hard."},
+      {t:"Midus Round",b:"The group votes on who is most 'Lithuanian' tonight. They choose everyone's next drink.",tip:"Criteria: stoicism, potato knowledge, basketball opinion."},
+      {t:"Baltic Waterfall",b:"Waterfall. All drink. You stop when the person to your left stops.",tip:"Name a Baltic country as you start. Only three. Choose wisely."},
+      {t:"Cepelinai Bet",b:"Each person guesses how many cepelinai they could eat right now. Highest number buys the round.",tip:"Honesty is impossible here. Ambition is mandatory."},
+      {t:"Grand Duchy Shot",b:"Everyone raises their glass and names one territory of the original Grand Duchy of Lithuania before drinking.",tip:"It was very large. You have options."},
+      {t:"Žilvinas and Eglė",b:"Two people are assigned Žilvinas (the serpent) and Eglė (the queen). They must toast each other romantically.",tip:"The rest of the group watches in respectful silence."},
+      {t:"Kaunas Midnight",b:"Last person to finish their drink must choose the next bar. Their decision is final. Jokūbo gatvė awaits.",tip:"No deliberation. Kaunas decides."},
+    ],
+  },
+  karaoke:{
+    photo:[
+      {t:"Opening Act",b:"Pose as if you just walked onto a karaoke stage to thunderous applause. Own it completely.",tip:"Hand on microphone. Eyes closed. The crowd loves you."},
+      {t:"Power Ballad Moment",b:"Recreate the climax of a power ballad — one hand raised, eyes squeezed shut, absolute feeling.",tip:"The song is implied. Everyone knows which song."},
+      {t:"The Duet",b:"Two people perform a duet — mimed, hummed, or fully sung. Group is the audience.",tip:"Harmony is optional. Eye contact is mandatory."},
+      {t:"Judges Panel",b:"Three people become the judges. Pose in the most iconic judging panel photo possible.",tip:"One must be encouraging. One must be skeptical. One must be Simon."},
+      {t:"The Emotional Breakdown",b:"Pose mid-emotional breakdown during an imaginary ballad. One person comforts. Everyone else films.",tip:"This is cinema. Treat it as such."},
+      {t:"Walk of Fame",b:"Walk down an imaginary star-lined corridor to the stage. Group lines the path cheering.",tip:"Take your time. This is your moment. They earned this."},
+      {t:"The Final Note",b:"Strike the pose of someone holding the final note of the greatest song ever performed.",tip:"Hold for 5 full seconds. No collapsing before the photo."},
+      {t:"Group Banger",b:"Everyone poses as if performing the same song in perfect sync. Assign instruments.",tip:"One must be on keys. One must be on drums. All must commit."},
+    ],
+    dare:[
+      {t:"First 30 Seconds",b:"Sing the first 30 seconds of any song — no music, no lyrics, no warning. Right now.",tip:"Wrong lyrics count as long as the melody is there."},
+      {t:"Worst Song Best Performance",b:"Perform the song you hate most as if it were your personal anthem.",tip:"Passion is required. Self-awareness is forbidden."},
+      {t:"Genre Swap",b:"Take a well-known song and perform it in a completely different genre. Group guesses the original.",tip:"Classical opera version of a pop banger is always correct."},
+      {t:"Hype Vocalist",b:"Stand behind someone in the group and hype every single thing they say for 3 minutes.",tip:"They say 'I want water' — you hit a run. That's the assignment."},
+      {t:"The Verse Only",b:"Everyone sings the verse of the same song — solo, a cappella, one by one. No chorus allowed.",tip:"Verses are harder than you think. That's the point."},
+      {t:"Crowd Work",b:"Do 60 seconds of crowd work on the bar as if you just finished a set and need to warm up the room.",tip:"Ask the bar where they're from. React to the answer appropriately."},
+      {t:"The Audition",b:"Perform a 45-second audition for an unnamed singing competition. Give it everything.",tip:"You must introduce yourself by a stage name first."},
+      {t:"Karaoke Duel",b:"Two people sing the same song simultaneously. Group votes on the winner. Loser buys.",tip:"No sabotage. Only talent. May the best voice win."},
+      {t:"One Word Song",b:"Each person adds one word to build a song together. It must rhyme and have rhythm.",tip:"Go around the group twice. If it falls apart, everyone drinks."},
+      {t:"The Falsetto",b:"Sustain the highest note you can for as long as physically possible. Group times it.",tip:"Longest holds wins immunity from the next dare."},
+    ],
+    drink:[
+      {t:"Name That Karaoke",b:"Someone hums or sings 5 words of any song. First to name it doesn't drink. Everyone else does.",tip:"No humming the chorus immediately. Build up to it."},
+      {t:"Audience Vote",b:"Each person performs one line of any song. Group votes on the best. Bottom vote drinks.",tip:"The line must be sung, not spoken. That is the rule."},
+      {t:"The Banger Bet",b:"Everyone writes down a song title. Draw randomly. Whoever picks their own song drinks.",tip:"Shuffle properly. No peeking."},
+      {t:"Chorus Waterfall",b:"Pick any song playing. Every time the chorus hits, the next person in line drinks.",tip:"Works best with songs that have a lot of choruses. Choose wisely."},
+      {t:"Pitch Perfect",b:"Sing one note. The group votes on whether it was in tune. Out of tune = drink.",tip:"The group is always right. There is no appeal."},
+      {t:"Karaoke Roulette",b:"Bartender picks the next song. Whoever refuses to sing drinks twice.",tip:"There is no veto. There is no dignity. Only karaoke."},
+      {t:"The Encore Drink",b:"Everyone finishes their drink and immediately orders another. This is the encore.",tip:"There is always an encore. Always."},
+      {t:"Last Note Standing",b:"Everyone hums the same note. Last person still humming without breathing wins. Everyone else drinks.",tip:"Cheating is obvious. Cheating is punishable."},
+    ],
+  },
+  hot18:{
+    photo:[
+      {t:"Body Language",b:"Group arranges itself into the most suggestive composition possible without any actual contact.",tip:"It's all about implication. The camera does the rest."},
+      {t:"Morning After",b:"Recreate a morning-after photo. Dishevelled, satisfied, absolutely no explanation needed.",tip:"Location: anywhere. Context: none provided."},
+      {t:"The Forbidden Selfie",b:"Take the kind of selfie that would make your family uncomfortable. Nothing explicit. Just vibes.",tip:"Send it to no one. Show the group. Archive immediately."},
+      {t:"Tension",b:"Two people stand 10cm apart and hold absolute eye contact for 15 seconds. Group takes the photo.",tip:"No touching. The space between is the content."},
+      {t:"The Lingerie Ad",b:"Pose as if starring in a high-fashion lingerie campaign. Fully clothed. Pure attitude.",tip:"The clothes are irrelevant. The energy is everything."},
+      {t:"The One That Got Away",b:"Pose as if watching someone walk out of your life in slow motion. Devastated. Smouldering.",tip:"You could have stopped them. You chose the bar. No regrets."},
+      {t:"Late Night Text",b:"Act out the face you make when you receive an unexpected message at 1am. Group guesses the context.",tip:"Say nothing. Let the expression tell the story."},
+      {t:"The Chemistry",b:"Two people must recreate the most intense chemistry-filled scene from any film. Fully SFW.",tip:"Chosen by the group. Performed immediately. No rehearsal."},
+    ],
+    dare:[
+      {t:"The Confession",b:"Confess the most embarrassing thing you've done to get someone's attention. In full detail.",tip:"The group responds with solidarity. Or laughter. Both are valid."},
+      {t:"Describe Your Type",b:"Describe your ideal person to the group in 60 seconds. Be specific. Be honest.",tip:"Vague answers are not accepted. The group will ask follow-ups."},
+      {t:"The Ex Files",b:"Rate your last three situationships out of 10. Justify each score.",tip:"Names optional. Scores mandatory."},
+      {t:"Hot Takes: Relationships",b:"Give your most controversial opinion on modern dating. Most shocking = everyone drinks.",tip:"The group votes. You cannot vote for your own take."},
+      {t:"The DM",b:"Compose the perfect opening message to your current crush and read it aloud to the group.",tip:"The group votes on whether to actually send it. Their word is final."},
+      {t:"Rizz Test",b:"Approach a willing stranger and use your best rizz. Group rates your performance out of 10.",tip:"Outcome irrelevant. Technique is everything."},
+      {t:"The Fantasy",b:"Describe your ideal romantic evening in 60 seconds. Group votes on most realistic vs most delusional.",tip:"Both winning categories receive a prize. The prize is respect."},
+      {t:"Biggest Ick",b:"Share the pettiest thing that has ever put you off someone. Group votes on most unhinged ick.",tip:"Most unhinged = drinks free. Most relatable = everyone else drinks."},
+      {t:"First Move",b:"Recreate how you've made (or imagined making) a first move. Group rates confidence out of 10.",tip:"Real or fictional. Delivery is judged, not accuracy."},
+      {t:"The Rating",b:"Rate every person in the group on charisma tonight, 1–10. Read the scores aloud.",tip:"No one is offended. Everyone is slightly offended. That's the game."},
+    ],
+    drink:[
+      {t:"Truth or Shots",b:"Answer any question the group asks truthfully or take two shots. No half-answers.",tip:"Questions come from everyone. Simultaneously."},
+      {t:"Never Have I Ever: Uncut",b:"The unfiltered edition. 5 rounds. Fingers down. Whoever has done the most drinks last.",tip:"No filters. No redactions. You agreed to After Dark."},
+      {t:"Most Likely To",b:"Group votes on who is most likely to... (each person suggests one scenario). Most votes each round drinks.",tip:"Scenarios must be plausible. Flattering is optional."},
+      {t:"Thirst Trap Ranking",b:"Each person ranks the group members by charisma tonight. Most consistent top ranking = chooses the round.",tip:"Read the results aloud. React accordingly."},
+      {t:"The Overshare",b:"Share something about your love life that you've never told this group. Most surprising = drinks free.",tip:"The group votes on most surprising. Your secrets fund the round."},
+      {t:"Two Truths One Lie: Spicy Edition",b:"Two true things and one lie — all romantic or spicy in nature. Group must identify the lie.",tip:"The more convincing the lie, the better. The group is not kind."},
+      {t:"Red Flag Roulette",b:"Each person names one of their own red flags. Group votes on the most concerning. They drink.",tip:"Honesty is rewarded. The reward is drinking."},
+      {t:"The Last Message",b:"Read the last message you sent after midnight this week to the group. Most unhinged drinks free.",tip:"No editing. No context. Just the message."},
     ],
   },
 };
 
 let players=["Player 1","Player 2","Player 3"];
-let theme=null,deck=[],current=null,scores={},activePlayer=0;
+let theme=null,pendingTheme=null,deck=[],current=null,scores={},activePlayer=0;
 let revealed=false,totalCards=0;
 
 function renderPlayers(){
@@ -664,8 +641,11 @@ function removePlayer(i){
 
 function renderThemes(){
   const g=document.getElementById('themes-grid');
-  g.innerHTML=Object.entries(THEMES).map(([key,t])=>`
-    <div class="theme-card" onclick="startGame('${key}')" style="background:${t.bg}">
+  g.innerHTML=Object.entries(THEMES).map(([key,t])=>{
+    const badge=t.adult?`<span class="tc-badge" style="background:#FF1A7522;color:#FF1A75;border:1px solid #FF1A75">🔞 18+</span>`:
+      `<div class="tc-arrow">→</div>`;
+    return `
+    <div class="theme-card" onclick="selectTheme('${key}')" style="background:${t.bg}">
       <div class="tc-inner">
         <div class="tc-top">
           <div class="tc-emoji">${t.emoji}</div>
@@ -680,8 +660,29 @@ function renderThemes(){
           <span class="tc-tag" style="color:${t.drinkA};border-color:${t.drinkA}">${t.DRL}</span>
         </div>
       </div>
-      <div class="tc-arrow">→</div>
-    </div>`).join('');
+      ${badge}
+    </div>`;
+  }).join('');
+}
+
+function selectTheme(key){
+  if(THEMES[key].adult){
+    pendingTheme=key;
+    document.getElementById('age-gate').style.display='flex';
+  } else {
+    startGame(key);
+  }
+}
+
+function confirmAge(){
+  document.getElementById('age-gate').style.display='none';
+  if(pendingTheme) startGame(pendingTheme);
+  pendingTheme=null;
+}
+
+function denyAge(){
+  document.getElementById('age-gate').style.display='none';
+  pendingTheme=null;
 }
 
 function shuffle(arr){
